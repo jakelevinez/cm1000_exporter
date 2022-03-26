@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -13,14 +14,16 @@ import (
 )
 
 const (
-	loginURL = "/GenieLogin.asp"
+	tokenURI  = "/GenieLogin.asp"
+	loginURI  = "/goform/GenieLogin"
+	scrapeURI = "/DocsisStatus.asp"
 )
 
 type Modem struct {
-	Url    string `default:"http://192.168.100.1"`
-	User   string `default:"admin"`
-	Pass   string `default:"password"`
-	port   string `default:"9527"`
+	Url    string
+	User   string
+	Pass   string
+	login  string
 	Client *http.Client
 }
 
@@ -28,19 +31,23 @@ type webToken struct {
 	Token string
 }
 
-type Scrape struct {
+type ScrapeData struct {
 	Name string
 }
 
 func (modem *Modem) getToken() webToken {
-	loginURL := modem.Url + loginURL
+	tokenURL := modem.Url + tokenURI
 	client := modem.Client
 
-	response, err := client.Get(loginURL)
+	fmt.Printf("Get request on login url " + tokenURI + "\n")
+
+	response, err := client.Get(tokenURL)
 
 	if err != nil {
 		log.Fatalln("Error fetching response. ", err)
 	}
+
+	fmt.Printf("Got response \n")
 
 	defer response.Body.Close()
 
@@ -58,18 +65,25 @@ func (modem *Modem) getToken() webToken {
 	return webToken
 }
 
-func (modem *Modem) login(class Modem) {
+func (modem *Modem) loginFunc() {
 	client := modem.Client
+
+	fmt.Printf("getting token \n")
 
 	webToken := modem.getToken()
 
-	loginURL := modem.Url + "/GenieLogin.asp"
+	fmt.Printf("Got web token \n")
+
+	loginURL := modem.Url + loginURI
 
 	data := url.Values{
 		"webToken":      {webToken.Token},
 		"loginUsername": {modem.User},
 		"loginPassword": {modem.Pass},
+		"login":         {modem.login},
 	}
+
+	fmt.Printf("%+v\n", data)
 
 	response, err := client.PostForm(loginURL, data)
 
@@ -85,40 +99,92 @@ func (modem *Modem) login(class Modem) {
 	}
 }
 
+func (modem *Modem) getData() *goquery.Document {
+	scrapeURL := modem.Url + scrapeURI
+	client := modem.Client
+
+	response, err := client.Get(scrapeURL)
+
+	if err != nil {
+		log.Fatalln("Error fetching response. ", err)
+	}
+
+	defer response.Body.Close()
+
+	document, err := goquery.NewDocumentFromReader(response.Body)
+	if err != nil {
+		log.Fatal("Error loading HTTP response body. ", err)
+	}
+
+	return document
+
+}
+
 func main() {
 
-	//initialize the modem vars via env vars
-
-	currentModem := Modem{}
+	fmt.Printf("Initializing modem parameters \n")
 
 	url, existsUrl := os.LookupEnv("MODEM_URL")
 	user, existsUser := os.LookupEnv("MODEM_USER")
 	pass, existsPass := os.LookupEnv("MODEM_PASS")
 	port, existsPort := os.LookupEnv("EXPORT_PORT")
+
 	if existsUrl {
-		currentModem.Url = url
+		fmt.Printf("Found modem url from env var \n")
+	} else {
+		url = "http://192.168.100.1"
 	}
+
 	if existsUser {
-		currentModem.User = user
+		fmt.Printf("Found modem user from env var \n")
+	} else {
+		user = "admin"
 	}
+
 	if existsPass {
-		currentModem.Pass = pass
+		fmt.Printf("Found modem pass from env var \n")
+	} else {
+		pass = "password"
 	}
+
 	if existsPort {
-		currentModem.port = port
+		fmt.Printf("Found modem port from env var \n")
+	} else {
+		port = "9527"
 	}
 
-	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(currentModem.port, nil))
-
-	// scrape modem
+	fmt.Printf("Initializing cookiejar \n")
 
 	jar, _ := cookiejar.New(nil)
 
-	modem := Modem{
+	fmt.Printf("Initialized cookiejar \n")
+
+	currentModem := Modem{
+		Url:    url,
+		User:   user,
+		Pass:   pass,
+		login:  "1",
 		Client: &http.Client{Jar: jar},
 	}
 
-	modem.login(currentModem)
+	// scrape modem
+
+	fmt.Printf("Logging in to modem \n")
+
+	currentModem.loginFunc()
+
+	fmt.Printf("Logged in to Modem \n")
+
+	ScrapeData := currentModem.getData()
+
+	fmt.Printf("Scraped data \n")
+
+	downstreamTable := ScrapeData.Find("table[id='dsTable']")
+	upstreamTable := ScrapeData.Find("table[id='usTable']")
+	dsOFDMTable := ScrapeData.Find("table[id='d31dsTable']")
+	usOFDMTable := ScrapeData.Find("table[id='d31usTable']")
+
+	http.Handle("/metrics", promhttp.Handler())
+	log.Fatal(http.ListenAndServe(port, nil))
 
 }
