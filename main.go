@@ -70,11 +70,12 @@ type dsOFDMTable struct {
 }
 
 type usOFDMATable struct {
-	lock_status string
-	modulation  string
-	channel_id  int
-	frequency   string
-	power       string
+	channel               int
+	lock_status           string
+	modulation_profile_id string
+	channel_id            int
+	frequency             int
+	power                 float64
 }
 
 func (modem *Modem) getToken() webToken {
@@ -274,8 +275,8 @@ func main() {
 
 	downstreamTable := ScrapeData.Find("table[id='dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 	upstreamTable := ScrapeData.Find("table[id='usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
-	// downstreamOFDMTable := ScrapeData.Find("table[id='d31dsTable']")
-	// upstreamOFDMATable := ScrapeData.Find("table[id='d31usTable']")
+	downstreamOFDMTable := ScrapeData.Find("table[id='d31dsTable']")
+	upstreamOFDMATable := ScrapeData.Find("table[id='d31usTable']")
 
 	//fmt.Printf(downstreamTable.Text())
 	// fmt.Printf(upstreamTable.Text())
@@ -283,6 +284,8 @@ func main() {
 	// fmt.Printf(usOFDMATable.Text())
 	// fmt.Printf(downstreamTable.Text())
 	// fmt.Printf("Printed DS table \n")
+
+	fmt.Printf("DS Table Data: \n")
 
 	downstreamTable.Each(func(i int, s *goquery.Selection) {
 
@@ -299,9 +302,11 @@ func main() {
 			uncorrectable_codewords: convertTabletoI(s, 9),
 		}
 
-		fmt.Printf("DS Table Data: %v \n", dsTableData)
+		fmt.Printf("%v \n", dsTableData)
 
 	})
+
+	fmt.Printf("US Table Data: \n")
 
 	upstreamTable.Each(func(i int, s *goquery.Selection) {
 
@@ -314,8 +319,45 @@ func main() {
 			power:       convertStringTabletoFloat(s, 5, "dBmV"),
 		}
 
-		fmt.Printf("US Table Data: %v \n", usTableData)
+		fmt.Printf("%v \n", usTableData)
 
+	})
+
+	fmt.Printf("DS OFDM Table Data:\n")
+
+	downstreamOFDMTable.Each(func(i int, s *goquery.Selection) {
+
+		dsOFDMTableData := dsOFDMTable{
+			channel:                        convertTabletoI(s, 0),
+			lock_status:                    s.Find("td").Eq(1).Text(),
+			modulation_profile_id:          s.Find("td").Eq(2).Text(),
+			channel_id:                     convertTabletoI(s, 3),
+			frequency:                      convertStringTabletoI(s, 4, "Hz"),
+			power:                          convertStringTabletoFloat(s, 5, "dBmV"),
+			snr_mer:                        convertStringTabletoFloat(s, 6, "dB"),
+			active_subcarrier_number_range: s.Find("td").Eq(7).Text(),
+			unerrored_codewords:            convertTabletoI(s, 8),
+			correctable_codewords:          convertTabletoI(s, 9),
+			uncorrectable_codewords:        convertTabletoI(s, 10),
+		}
+
+		fmt.Printf("%v \n", dsOFDMTableData)
+
+	})
+
+	fmt.Printf("US OFDMA Table Data:\n")
+
+	upstreamOFDMATable.Each(func(i int, s *goquery.Selection) {
+		usOFDMATableData := usOFDMATable{
+			channel:               convertTabletoI(s, 0),
+			lock_status:           s.Find("td").Eq(1).Text(),
+			modulation_profile_id: s.Find("td").Eq(2).Text(),
+			channel_id:            convertTabletoI(s, 3),
+			frequency:             convertStringTabletoI(s, 4, "Hz"),
+			power:                 convertStringTabletoFloat(s, 5, "dBmV"),
+		}
+
+		fmt.Printf("%v \n", usOFDMATableData)
 	})
 
 	http.Handle("/metrics", promhttp.Handler())
