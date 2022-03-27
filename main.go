@@ -163,11 +163,38 @@ func (modem *Modem) getData() *goquery.Document {
 }
 
 func convertTabletoI(table *goquery.Selection, i int) int {
-
-	//takes a table and a row index and returns the value of the cell at that index as an integer.
+	//takes a goquery selection and a row index and returns the value of the cell at that index as an integer.
 
 	var return_value int
 	if value, err := strconv.Atoi(table.Find("td").Eq(i).Text()); err == nil {
+		return_value = value
+	}
+
+	return return_value
+}
+
+func convertStringTabletoI(table *goquery.Selection, i int, st string) int {
+	//takes a goquery selection, row index, and string to replace and returns the value of the cell at that index as an integer.
+
+	var return_value int
+
+	parsed_value := strings.ReplaceAll(table.Find("td").Eq(i).Text(), st, "")
+
+	if value, err := strconv.Atoi(parsed_value); err == nil {
+		return_value = value
+	}
+
+	return return_value
+}
+
+func convertStringTabletoFloat(table *goquery.Selection, i int, st string) float64 {
+	//takes a goquery selection, row index, and string to replace and returns the value of the cell at that index as a float.
+
+	var return_value float64
+
+	parsed_value := strings.ReplaceAll(table.Find("td").Eq(i).Text(), st, "")
+
+	if value, err := strconv.ParseFloat(parsed_value, 64); err == nil {
 		return_value = value
 	}
 
@@ -249,36 +276,14 @@ func main() {
 
 	downstreamTable.Each(func(i int, s *goquery.Selection) {
 
-		var frequency_value int
-		var power_value float64
-		var snr_mer_value float64
-
-		parsed_frequency := strings.ReplaceAll(s.Find("td").Eq(4).Text(), "Hz", "")
-
-		if value, err := strconv.Atoi(parsed_frequency); err == nil {
-			frequency_value = value
-		}
-
-		parsed_power := strings.ReplaceAll(s.Find("td").Eq(5).Text(), "dBmV", "")
-
-		if value, err := strconv.ParseFloat(parsed_power, 64); err == nil {
-			power_value = value
-		}
-
-		parsed_snr_mer := strings.ReplaceAll(s.Find("td").Eq(6).Text(), "dB", "")
-
-		if value, err := strconv.ParseFloat(parsed_snr_mer, 64); err == nil {
-			snr_mer_value = value
-		}
-
 		dsTableData := dsTable{
 			channel:                 convertTabletoI(s, 0),
 			lock_status:             s.Find("td").Eq(1).Text(),
 			modulation:              s.Find("td").Eq(2).Text(),
 			channel_id:              convertTabletoI(s, 3),
-			frequency:               frequency_value,
-			power:                   power_value,
-			snr_mer:                 snr_mer_value,
+			frequency:               convertStringTabletoI(s, 4, "Hz"),
+			power:                   convertStringTabletoFloat(s, 5, "dBmV"),
+			snr_mer:                 convertStringTabletoFloat(s, 6, "dB"),
 			unerrored_codewords:     convertTabletoI(s, 7),
 			correctable_codewords:   convertTabletoI(s, 8),
 			uncorrectable_codewords: convertTabletoI(s, 9),
@@ -289,28 +294,14 @@ func main() {
 	})
 
 	upstreamTable.Each(func(i int, s *goquery.Selection) {
-		var frequency_value int
-		var power_value float64
-
-		parsed_frequency := strings.ReplaceAll(s.Find("td").Eq(4).Text(), "Hz", "")
-
-		if value, err := strconv.Atoi(parsed_frequency); err == nil {
-			frequency_value = value
-		}
-
-		parsed_power := strings.ReplaceAll(s.Find("td").Eq(5).Text(), "dBmV", "")
-
-		if value, err := strconv.ParseFloat(parsed_power, 64); err == nil {
-			power_value = value
-		}
 
 		usTableData := usTable{
 			channel:     convertTabletoI(s, 0),
 			lock_status: s.Find("td").Eq(1).Text(),
 			modulation:  s.Find("td").Eq(2).Text(),
 			channel_id:  convertTabletoI(s, 3),
-			frequency:   frequency_value,
-			power:       power_value,
+			frequency:   convertStringTabletoI(s, 4, "Hz"),
+			power:       convertStringTabletoFloat(s, 5, "dBmV"),
 		}
 
 		fmt.Printf("US Table Data: %v \n", usTableData)
