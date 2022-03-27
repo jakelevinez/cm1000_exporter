@@ -245,6 +245,8 @@ func main() {
 		port = "9527"
 	}
 
+	portstring := ":" + port
+
 	fmt.Printf("Initializing cookiejar \n")
 
 	jar, _ := cookiejar.New(nil)
@@ -277,13 +279,6 @@ func main() {
 	upstreamTable := ScrapeData.Find("table[id='usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 	downstreamOFDMTable := ScrapeData.Find("table[id='d31dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 	upstreamOFDMATable := ScrapeData.Find("table[id='d31usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
-
-	//fmt.Printf(downstreamTable.Text())
-	// fmt.Printf(upstreamTable.Text())
-	// fmt.Printf(dsOFDMTable.Text())
-	// fmt.Printf(usOFDMATable.Text())
-	// fmt.Printf(downstreamTable.Text())
-	// fmt.Printf("Printed DS table \n")
 
 	fmt.Printf("DS Table Data: \n")
 
@@ -361,6 +356,6 @@ func main() {
 	})
 
 	http.Handle("/metrics", promhttp.Handler())
-	log.Fatal(http.ListenAndServe(port, nil))
+	log.Fatal(http.ListenAndServe(portstring, nil))
 
 }
