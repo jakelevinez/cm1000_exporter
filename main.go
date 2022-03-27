@@ -275,8 +275,8 @@ func main() {
 
 	downstreamTable := ScrapeData.Find("table[id='dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 	upstreamTable := ScrapeData.Find("table[id='usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
-	downstreamOFDMTable := ScrapeData.Find("table[id='d31dsTable']")
-	upstreamOFDMATable := ScrapeData.Find("table[id='d31usTable']")
+	downstreamOFDMTable := ScrapeData.Find("table[id='d31dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
+	upstreamOFDMATable := ScrapeData.Find("table[id='d31usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 
 	//fmt.Printf(downstreamTable.Text())
 	// fmt.Printf(upstreamTable.Text())
