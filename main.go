@@ -8,6 +8,8 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -31,15 +33,55 @@ type webToken struct {
 	Token string
 }
 
-type ScrapeData struct {
-	Name string
+type dsTable struct {
+	channel                 int
+	lock_status             string
+	modulation              string
+	channel_id              int
+	frequency               int
+	power                   float64
+	snr_mer                 float64
+	unerrored_codewords     int
+	correctable_codewords   int
+	uncorrectable_codewords int
+}
+
+type usTable struct {
+	channel     int
+	lock_status string
+	modulation  string
+	channel_id  int
+	frequency   int
+	power       float64
+}
+
+type dsOFDMTable struct {
+	channel                        int
+	lock_status                    string
+	modulation_profile_id          string
+	channel_id                     int
+	frequency                      int
+	power                          float64
+	snr_mer                        float64
+	active_subcarrier_number_range string
+	unerrored_codewords            int
+	correctable_codewords          int
+	uncorrectable_codewords        int
+}
+
+type usOFDMATable struct {
+	lock_status string
+	modulation  string
+	channel_id  int
+	frequency   string
+	power       string
 }
 
 func (modem *Modem) getToken() webToken {
 	tokenURL := modem.Url + tokenURI
 	client := modem.Client
 
-	fmt.Printf("Get request on login url " + tokenURI + "\n")
+	fmt.Printf("Get request on login url " + tokenURL + "\n")
 
 	response, err := client.Get(tokenURL)
 
@@ -179,10 +221,128 @@ func main() {
 
 	fmt.Printf("Scraped data \n")
 
-	downstreamTable := ScrapeData.Find("table[id='dsTable']")
-	upstreamTable := ScrapeData.Find("table[id='usTable']")
-	dsOFDMTable := ScrapeData.Find("table[id='d31dsTable']")
-	usOFDMTable := ScrapeData.Find("table[id='d31usTable']")
+	//Partition Scraped Data
+
+	downstreamTable := ScrapeData.Find("table[id='dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
+	upstreamTable := ScrapeData.Find("table[id='usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
+	// downstreamOFDMTable := ScrapeData.Find("table[id='d31dsTable']")
+	// upstreamOFDMATable := ScrapeData.Find("table[id='d31usTable']")
+
+	//fmt.Printf(downstreamTable.Text())
+	// fmt.Printf(upstreamTable.Text())
+	// fmt.Printf(dsOFDMTable.Text())
+	// fmt.Printf(usOFDMATable.Text())
+	// fmt.Printf(downstreamTable.Text())
+	// fmt.Printf("Printed DS table \n")
+
+	downstreamTable.Each(func(i int, s *goquery.Selection) {
+		var channel_value int
+		var channel_id_value int
+		var frequency_value int
+		var power_value float64
+		var snr_mer_value float64
+		var unerrored_codewords_value int
+		var correctable_codewords_value int
+		var uncorrectable_codewords_value int
+
+		if value, err := strconv.Atoi(s.Find("td").Eq(0).Text()); err == nil {
+			channel_value = value
+		}
+		if value, err := strconv.Atoi(s.Find("td").Eq(3).Text()); err == nil {
+			channel_id_value = value
+		}
+
+		parsed_frequency := strings.ReplaceAll(s.Find("td").Eq(4).Text(), "Hz", "")
+
+		if value, err := strconv.Atoi(parsed_frequency); err == nil {
+			frequency_value = value
+		}
+
+		parsed_power := strings.ReplaceAll(s.Find("td").Eq(5).Text(), "dBmV", "")
+
+		if value, err := strconv.ParseFloat(parsed_power, 64); err == nil {
+			power_value = value
+		}
+
+		parsed_snr_mer := strings.ReplaceAll(s.Find("td").Eq(6).Text(), "dB", "")
+
+		if value, err := strconv.ParseFloat(parsed_snr_mer, 64); err == nil {
+			snr_mer_value = value
+		}
+
+		parsed_unerrored_codewords := strings.ReplaceAll(s.Find("td").Eq(7).Text(), "", "")
+
+		if value, err := strconv.Atoi(parsed_unerrored_codewords); err == nil {
+			unerrored_codewords_value = value
+		}
+
+		parsed_correctable_codewords := strings.ReplaceAll(s.Find("td").Eq(8).Text(), "", "")
+
+		if value, err := strconv.Atoi(parsed_correctable_codewords); err == nil {
+			correctable_codewords_value = value
+		}
+
+		parsed_uncorrectable_codewords := strings.ReplaceAll(s.Find("td").Eq(9).Text(), "", "")
+
+		if value, err := strconv.Atoi(parsed_uncorrectable_codewords); err == nil {
+			uncorrectable_codewords_value = value
+		}
+
+		dsTableData := dsTable{
+			channel:                 channel_value,
+			lock_status:             s.Find("td").Eq(1).Text(),
+			modulation:              s.Find("td").Eq(2).Text(),
+			channel_id:              channel_id_value,
+			frequency:               frequency_value,
+			power:                   power_value,
+			snr_mer:                 snr_mer_value,
+			unerrored_codewords:     unerrored_codewords_value,
+			correctable_codewords:   correctable_codewords_value,
+			uncorrectable_codewords: uncorrectable_codewords_value,
+		}
+
+		fmt.Printf("DS Table Data: %v \n", dsTableData)
+
+	})
+
+	upstreamTable.Each(func(i int, s *goquery.Selection) {
+		var channel_value int
+		var channel_id_value int
+		var frequency_value int
+		var power_value float64
+
+		if value, err := strconv.Atoi(s.Find("td").Eq(0).Text()); err == nil {
+			channel_value = value
+		}
+
+		if value, err := strconv.Atoi(s.Find("td").Eq(3).Text()); err == nil {
+			channel_id_value = value
+		}
+
+		parsed_frequency := strings.ReplaceAll(s.Find("td").Eq(4).Text(), "Hz", "")
+
+		if value, err := strconv.Atoi(parsed_frequency); err == nil {
+			frequency_value = value
+		}
+
+		parsed_power := strings.ReplaceAll(s.Find("td").Eq(5).Text(), "dBmV", "")
+
+		if value, err := strconv.ParseFloat(parsed_power, 64); err == nil {
+			power_value = value
+		}
+
+		usTableData := usTable{
+			channel:     channel_value,
+			lock_status: s.Find("td").Eq(1).Text(),
+			modulation:  s.Find("td").Eq(2).Text(),
+			channel_id:  channel_id_value,
+			frequency:   frequency_value,
+			power:       power_value,
+		}
+
+		fmt.Printf("US Table Data: %v \n", usTableData)
+
+	})
 
 	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(port, nil))
