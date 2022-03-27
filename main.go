@@ -162,6 +162,18 @@ func (modem *Modem) getData() *goquery.Document {
 
 }
 
+func convertTabletoI(table *goquery.Selection, i int) int {
+
+	//takes a table and a row index and returns the value of the cell at that index as an integer.
+
+	var return_value int
+	if value, err := strconv.Atoi(table.Find("td").Eq(i).Text()); err == nil {
+		return_value = value
+	}
+
+	return return_value
+}
+
 func main() {
 
 	fmt.Printf("Initializing modem parameters \n")
@@ -236,21 +248,10 @@ func main() {
 	// fmt.Printf("Printed DS table \n")
 
 	downstreamTable.Each(func(i int, s *goquery.Selection) {
-		var channel_value int
-		var channel_id_value int
+
 		var frequency_value int
 		var power_value float64
 		var snr_mer_value float64
-		var unerrored_codewords_value int
-		var correctable_codewords_value int
-		var uncorrectable_codewords_value int
-
-		if value, err := strconv.Atoi(s.Find("td").Eq(0).Text()); err == nil {
-			channel_value = value
-		}
-		if value, err := strconv.Atoi(s.Find("td").Eq(3).Text()); err == nil {
-			channel_id_value = value
-		}
 
 		parsed_frequency := strings.ReplaceAll(s.Find("td").Eq(4).Text(), "Hz", "")
 
@@ -270,35 +271,17 @@ func main() {
 			snr_mer_value = value
 		}
 
-		parsed_unerrored_codewords := strings.ReplaceAll(s.Find("td").Eq(7).Text(), "", "")
-
-		if value, err := strconv.Atoi(parsed_unerrored_codewords); err == nil {
-			unerrored_codewords_value = value
-		}
-
-		parsed_correctable_codewords := strings.ReplaceAll(s.Find("td").Eq(8).Text(), "", "")
-
-		if value, err := strconv.Atoi(parsed_correctable_codewords); err == nil {
-			correctable_codewords_value = value
-		}
-
-		parsed_uncorrectable_codewords := strings.ReplaceAll(s.Find("td").Eq(9).Text(), "", "")
-
-		if value, err := strconv.Atoi(parsed_uncorrectable_codewords); err == nil {
-			uncorrectable_codewords_value = value
-		}
-
 		dsTableData := dsTable{
-			channel:                 channel_value,
+			channel:                 convertTabletoI(s, 0),
 			lock_status:             s.Find("td").Eq(1).Text(),
 			modulation:              s.Find("td").Eq(2).Text(),
-			channel_id:              channel_id_value,
+			channel_id:              convertTabletoI(s, 3),
 			frequency:               frequency_value,
 			power:                   power_value,
 			snr_mer:                 snr_mer_value,
-			unerrored_codewords:     unerrored_codewords_value,
-			correctable_codewords:   correctable_codewords_value,
-			uncorrectable_codewords: uncorrectable_codewords_value,
+			unerrored_codewords:     convertTabletoI(s, 7),
+			correctable_codewords:   convertTabletoI(s, 8),
+			uncorrectable_codewords: convertTabletoI(s, 9),
 		}
 
 		fmt.Printf("DS Table Data: %v \n", dsTableData)
@@ -306,18 +289,8 @@ func main() {
 	})
 
 	upstreamTable.Each(func(i int, s *goquery.Selection) {
-		var channel_value int
-		var channel_id_value int
 		var frequency_value int
 		var power_value float64
-
-		if value, err := strconv.Atoi(s.Find("td").Eq(0).Text()); err == nil {
-			channel_value = value
-		}
-
-		if value, err := strconv.Atoi(s.Find("td").Eq(3).Text()); err == nil {
-			channel_id_value = value
-		}
 
 		parsed_frequency := strings.ReplaceAll(s.Find("td").Eq(4).Text(), "Hz", "")
 
@@ -332,10 +305,10 @@ func main() {
 		}
 
 		usTableData := usTable{
-			channel:     channel_value,
+			channel:     convertTabletoI(s, 0),
 			lock_status: s.Find("td").Eq(1).Text(),
 			modulation:  s.Find("td").Eq(2).Text(),
-			channel_id:  channel_id_value,
+			channel_id:  convertTabletoI(s, 3),
 			frequency:   frequency_value,
 			power:       power_value,
 		}
