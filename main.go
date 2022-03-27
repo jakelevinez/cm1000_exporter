@@ -168,6 +168,8 @@ func convertTabletoI(table *goquery.Selection, i int) int {
 	var return_value int
 	if value, err := strconv.Atoi(table.Find("td").Eq(i).Text()); err == nil {
 		return_value = value
+	} else if err != nil {
+		log.Fatalln(err)
 	}
 
 	return return_value
@@ -175,13 +177,17 @@ func convertTabletoI(table *goquery.Selection, i int) int {
 
 func convertStringTabletoI(table *goquery.Selection, i int, st string) int {
 	//takes a goquery selection, row index, and string to replace and returns the value of the cell at that index as an integer.
+	//removes spaces before parsing
 
 	var return_value int
 
-	parsed_value := strings.ReplaceAll(table.Find("td").Eq(i).Text(), st, "")
+	parsed_value_with_spaces := strings.ReplaceAll(table.Find("td").Eq(i).Text(), st, "")
+	parsed_value := strings.ReplaceAll(parsed_value_with_spaces, " ", "")
 
 	if value, err := strconv.Atoi(parsed_value); err == nil {
 		return_value = value
+	} else if err != nil {
+		log.Fatalln(err)
 	}
 
 	return return_value
@@ -189,13 +195,17 @@ func convertStringTabletoI(table *goquery.Selection, i int, st string) int {
 
 func convertStringTabletoFloat(table *goquery.Selection, i int, st string) float64 {
 	//takes a goquery selection, row index, and string to replace and returns the value of the cell at that index as a float.
+	//removes spaces before parsing
 
 	var return_value float64
 
-	parsed_value := strings.ReplaceAll(table.Find("td").Eq(i).Text(), st, "")
+	parsed_value_with_spaces := strings.ReplaceAll(table.Find("td").Eq(i).Text(), st, "")
+	parsed_value := strings.ReplaceAll(parsed_value_with_spaces, " ", "")
 
 	if value, err := strconv.ParseFloat(parsed_value, 64); err == nil {
 		return_value = value
+	} else if err != nil {
+		log.Fatalln(err)
 	}
 
 	return return_value
