@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -212,73 +213,14 @@ func convertStringTabletoFloat(table *goquery.Selection, i int, st string) float
 	return return_value
 }
 
-func main() {
-
-	fmt.Printf("Initializing modem parameters \n")
-
-	url, existsUrl := os.LookupEnv("MODEM_URL")
-	user, existsUser := os.LookupEnv("MODEM_USER")
-	pass, existsPass := os.LookupEnv("MODEM_PASS")
-	port, existsPort := os.LookupEnv("EXPORT_PORT")
-
-	if existsUrl {
-		fmt.Printf("Found modem url from env var \n")
-	} else {
-		url = "http://192.168.100.1"
-	}
-
-	if existsUser {
-		fmt.Printf("Found modem user from env var \n")
-	} else {
-		user = "admin"
-	}
-
-	if existsPass {
-		fmt.Printf("Found modem pass from env var \n")
-	} else {
-		pass = "password"
-	}
-
-	if existsPort {
-		fmt.Printf("Found modem port from env var \n")
-	} else {
-		port = "9527"
-	}
-
-	portstring := ":" + port
-
-	fmt.Printf("Initializing cookiejar \n")
-
-	jar, _ := cookiejar.New(nil)
-
-	fmt.Printf("Initialized cookiejar \n")
-
-	currentModem := Modem{
-		Url:    url,
-		User:   user,
-		Pass:   pass,
-		login:  "1",
-		Client: &http.Client{Jar: jar},
-	}
-
-	// scrape modem
-
-	fmt.Printf("Logging in to modem \n")
-
-	currentModem.loginFunc()
-
-	fmt.Printf("Logged in to Modem \n")
-
-	ScrapeData := currentModem.getData()
-
-	fmt.Printf("Scraped data \n")
+func exportMetrics(scrapeData *goquery.Document) {
 
 	//Partition Scraped Data
 
-	downstreamTable := ScrapeData.Find("table[id='dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
-	upstreamTable := ScrapeData.Find("table[id='usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
-	downstreamOFDMTable := ScrapeData.Find("table[id='d31dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
-	upstreamOFDMATable := ScrapeData.Find("table[id='d31usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
+	downstreamTable := scrapeData.Find("table[id='dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
+	upstreamTable := scrapeData.Find("table[id='usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
+	downstreamOFDMTable := scrapeData.Find("table[id='d31dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
+	upstreamOFDMATable := scrapeData.Find("table[id='d31usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 
 	fmt.Printf("DS Table Data: \n")
 
@@ -354,6 +296,86 @@ func main() {
 
 		fmt.Printf("%v \n", usOFDMATableData)
 	})
+}
+
+func exporterLoop(currentModem *Modem) {
+	go func() {
+
+		for {
+
+			scrapeData := currentModem.getData()
+
+			fmt.Printf("Scraped data \n")
+
+			exportMetrics(scrapeData)
+
+			time.Sleep(time.Second * 5)
+		}
+
+	}()
+
+}
+
+func main() {
+
+	fmt.Printf("Initializing modem parameters \n")
+
+	url, existsUrl := os.LookupEnv("MODEM_URL")
+	user, existsUser := os.LookupEnv("MODEM_USER")
+	pass, existsPass := os.LookupEnv("MODEM_PASS")
+	port, existsPort := os.LookupEnv("EXPORT_PORT")
+
+	if existsUrl {
+		fmt.Printf("Found modem url from env var \n")
+	} else {
+		url = "http://192.168.100.1"
+	}
+
+	if existsUser {
+		fmt.Printf("Found modem user from env var \n")
+	} else {
+		user = "admin"
+	}
+
+	if existsPass {
+		fmt.Printf("Found modem pass from env var \n")
+	} else {
+		pass = "password"
+	}
+
+	if existsPort {
+		fmt.Printf("Found modem port from env var \n")
+	} else {
+		port = "9527"
+	}
+
+	portstring := ":" + port
+
+	fmt.Printf("Initializing cookiejar \n")
+
+	jar, _ := cookiejar.New(nil)
+
+	fmt.Printf("Initialized cookiejar \n")
+
+	currentModem := Modem{
+		Url:    url,
+		User:   user,
+		Pass:   pass,
+		login:  "1",
+		Client: &http.Client{Jar: jar},
+	}
+
+	// scrape modem
+
+	fmt.Printf("Logging in to modem \n")
+
+	currentModem.loginFunc()
+
+	fmt.Printf("Logged in to Modem \n")
+
+	exporterLoop(&currentModem)
+
+	//initializing promhttp
 
 	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(portstring, nil))
