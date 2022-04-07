@@ -298,6 +298,10 @@ func exportMetrics(scrapeData *goquery.Document) {
 	})
 }
 
+func channelUpdate(dsTable dsTable){
+	
+}
+
 func exporterLoop(currentModem *Modem) {
 	go func() {
 
