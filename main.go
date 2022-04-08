@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
@@ -150,6 +152,7 @@ func (modem *Modem) getData() *goquery.Document {
 	response, err := client.Get(scrapeURL)
 
 	if err != nil {
+		unsuccessfulScrapes.Inc()
 		log.Fatalln("Error fetching response. ", err)
 	}
 
@@ -157,12 +160,29 @@ func (modem *Modem) getData() *goquery.Document {
 
 	document, err := goquery.NewDocumentFromReader(response.Body)
 	if err != nil {
+		unsuccessfulScrapes.Inc()
 		log.Fatal("Error loading HTTP response body. ", err)
 	}
+
+	successfulScrapes.Inc()
 
 	return document
 
 }
+
+var (
+	successfulScrapes = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "successful_modem_scrapes",
+		Help: "The total number of successful modem scrapes",
+	})
+)
+
+var (
+	unsuccessfulScrapes = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "unsuccessful_modem_scrapes",
+		Help: "The total number of unsuccessful modem scrapes",
+	})
+)
 
 func convertTabletoI(table *goquery.Selection, i int) int {
 	//takes a goquery selection and a row index and returns the value of the cell at that index as an integer.
@@ -213,7 +233,7 @@ func convertStringTabletoFloat(table *goquery.Selection, i int, st string) float
 	return return_value
 }
 
-func exportMetrics(scrapeData *goquery.Document) {
+func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 
 	//Partition Scraped Data
 
@@ -239,6 +259,50 @@ func exportMetrics(scrapeData *goquery.Document) {
 			uncorrectable_codewords: convertTabletoI(s, 9),
 		}
 
+		if initialRun {
+
+			var (
+				channel_lock_status = promauto.NewGauge(prometheus.GaugeOpts{
+					Name: "channel_" + strconv.Itoa(dsTableData.channel) + "_lock_status",
+					Help: "Channel lock status",
+				})
+			)
+			var (
+				channel_power = promauto.NewGauge(prometheus.GaugeOpts{
+					Name: "channel_" + strconv.Itoa(dsTableData.channel) + "_power",
+					Help: "Channel power",
+				})
+			)
+			var (
+				channel_snr_mer = promauto.NewGauge(prometheus.GaugeOpts{
+					Name: "channel_" + strconv.Itoa(dsTableData.channel) + "_snr_mer",
+					Help: "Channel SNR MER",
+				})
+			)
+			var (
+				channel_unerrored_codewords = promauto.NewCounter(prometheus.CounterOpts{
+					Name: "channel_" + strconv.Itoa(dsTableData.channel) + "_unerrored_codewords",
+					Help: "The number of unerrored codewords",
+				})
+			)
+			channel_unerrored_codewords.
+			var (
+				channel_correctable_codewords = promauto.NewCounter(prometheus.CounterOpts{
+					Name: "channel_" + strconv.Itoa(dsTableData.channel) + "_correctable_codewords",
+					Help: "The number of correctable codewords",
+				})
+			)
+			var (
+				channel_uncorrectable_codewords = promauto.NewCounter(prometheus.CounterOpts{
+					Name: "channel_" + strconv.Itoa(dsTableData.channel) + "_uncorrectable_codewords",
+					Help: "The number of uncorrectable codewords",
+				})
+			)
+
+		} else {
+
+		}
+
 		fmt.Printf("%v \n", dsTableData)
 
 	})
@@ -255,7 +319,11 @@ func exportMetrics(scrapeData *goquery.Document) {
 			frequency:   convertStringTabletoI(s, 4, "Hz"),
 			power:       convertStringTabletoFloat(s, 5, "dBmV"),
 		}
+		if initialRun {
 
+		} else {
+
+		}
 		fmt.Printf("%v \n", usTableData)
 
 	})
@@ -277,6 +345,11 @@ func exportMetrics(scrapeData *goquery.Document) {
 			correctable_codewords:          convertTabletoI(s, 9),
 			uncorrectable_codewords:        convertTabletoI(s, 10),
 		}
+		if initialRun {
+
+		} else {
+
+		}
 
 		fmt.Printf("%v \n", dsOFDMTableData)
 
@@ -293,17 +366,19 @@ func exportMetrics(scrapeData *goquery.Document) {
 			frequency:             convertStringTabletoI(s, 4, "Hz"),
 			power:                 convertStringTabletoFloat(s, 5, "dBmV"),
 		}
+		if initialRun {
+
+		} else {
+
+		}
 
 		fmt.Printf("%v \n", usOFDMATableData)
 	})
 }
 
-func channelUpdate(dsTable dsTable){
-	
-}
-
 func exporterLoop(currentModem *Modem) {
 	go func() {
+		var initialRun = true
 
 		for {
 
@@ -311,7 +386,9 @@ func exporterLoop(currentModem *Modem) {
 
 			fmt.Printf("Scraped data \n")
 
-			exportMetrics(scrapeData)
+			exportMetrics(scrapeData, initialRun)
+
+			initialRun = false
 
 			time.Sleep(time.Second * 5)
 		}
