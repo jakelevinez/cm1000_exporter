@@ -267,7 +267,7 @@ func convertLocktoFloat(table *goquery.Selection, i int) float64 {
 	var return_value float64
 	if parsed_value == "Locked" {
 		return_value = 1
-	} else if parsed_value == "Unlocked" {
+	} else if parsed_value == "Not Locked" {
 		return_value = 0
 	} else {
 		log.Fatalln("Error parsing lock status")
