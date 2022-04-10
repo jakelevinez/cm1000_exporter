@@ -37,7 +37,7 @@ type webToken struct {
 }
 
 type dsTable struct {
-	lock_status             string
+	lock_status             float64
 	modulation              string
 	channel_id              string
 	frequency               float64
@@ -49,7 +49,7 @@ type dsTable struct {
 }
 
 type usTable struct {
-	lock_status string
+	lock_status float64
 	modulation  string
 	channel_id  string
 	frequency   float64
@@ -57,7 +57,7 @@ type usTable struct {
 }
 
 type dsOFDMTable struct {
-	lock_status                    string
+	lock_status                    float64
 	modulation_profile_id          string
 	channel_id                     string
 	frequency                      float64
@@ -70,7 +70,7 @@ type dsOFDMTable struct {
 }
 
 type usOFDMATable struct {
-	lock_status           string
+	lock_status           float64
 	modulation_profile_id string
 	channel_id            string
 	frequency             float64
@@ -221,6 +221,13 @@ var (
 	},
 		[]string{"channel", "channel_type", "direction"})
 )
+var (
+	channel_lock_status = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "channel_lock_status",
+		Help: "The lock status of the channel",
+	},
+		[]string{"channel", "channel_type", "direction"})
+)
 
 func convertTabletoFloat(table *goquery.Selection, i int) float64 {
 	//takes a goquery selection and a row index and returns the value of the cell at that index as an integer.
@@ -253,6 +260,23 @@ func convertStringTabletoFloat(table *goquery.Selection, i int, st string) float
 	return return_value
 }
 
+func convertLocktoFloat(table *goquery.Selection, i int) float64 {
+
+	parsed_value := table.Find("td").Eq(i).Text()
+
+	var return_value float64
+	if parsed_value == "Locked" {
+		return_value = 1
+	} else if parsed_value == "Unlocked" {
+		return_value = 0
+	} else {
+		log.Fatalln("Error parsing lock status")
+	}
+
+	return return_value
+
+}
+
 func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 
 	//Partition Scraped Data
@@ -267,7 +291,7 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 	downstreamTable.Each(func(i int, s *goquery.Selection) {
 
 		dsTableData := dsTable{
-			lock_status:             s.Find("td").Eq(1).Text(),
+			lock_status:             convertLocktoFloat(s, 1),
 			modulation:              s.Find("td").Eq(2).Text(),
 			channel_id:              s.Find("td").Eq(3).Text(),
 			frequency:               convertStringTabletoFloat(s, 4, "Hz"),
@@ -278,6 +302,7 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 			uncorrectable_codewords: convertTabletoFloat(s, 9),
 		}
 
+		channel_lock_status.With(prometheus.Labels{"channel": dsTableData.channel_id, "direction": "downstream", "channel_type": "bonded"}).Set(dsTableData.lock_status)
 		channel_power.With(prometheus.Labels{"channel": dsTableData.channel_id, "direction": "downstream", "channel_type": "bonded"}).Set(dsTableData.power)
 		channel_snr_mer.With(prometheus.Labels{"channel": dsTableData.channel_id, "direction": "downstream", "channel_type": "bonded"}).Set(dsTableData.snr_mer)
 		channel_unerrored_codewords.With(prometheus.Labels{"channel": dsTableData.channel_id, "direction": "downstream", "channel_type": "bonded"}).Set(dsTableData.unerrored_codewords)
@@ -292,13 +317,14 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 	upstreamTable.Each(func(i int, s *goquery.Selection) {
 
 		usTableData := usTable{
-			lock_status: s.Find("td").Eq(1).Text(),
+			lock_status: convertLocktoFloat(s, 1),
 			modulation:  s.Find("td").Eq(2).Text(),
 			channel_id:  s.Find("td").Eq(3).Text(),
 			frequency:   convertStringTabletoFloat(s, 4, "Hz"),
 			power:       convertStringTabletoFloat(s, 5, "dBmV"),
 		}
 
+		channel_lock_status.With(prometheus.Labels{"channel": usTableData.channel_id, "direction": "upstream", "channel_type": "bonded"}).Set(usTableData.lock_status)
 		channel_power.With(prometheus.Labels{"channel": usTableData.channel_id, "direction": "upstream", "channel_type": "bonded"}).Set(usTableData.power)
 		channel_frequency.With(prometheus.Labels{"channel": usTableData.channel_id, "direction": "upstream", "channel_type": "bonded"}).Set(usTableData.frequency)
 
@@ -309,7 +335,7 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 	downstreamOFDMTable.Each(func(i int, s *goquery.Selection) {
 
 		dsOFDMTableData := dsOFDMTable{
-			lock_status:                    s.Find("td").Eq(1).Text(),
+			lock_status:                    convertLocktoFloat(s, 1),
 			modulation_profile_id:          s.Find("td").Eq(2).Text(),
 			channel_id:                     s.Find("td").Eq(3).Text(),
 			frequency:                      convertStringTabletoFloat(s, 4, "Hz"),
@@ -321,6 +347,7 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 			uncorrectable_codewords:        convertTabletoFloat(s, 10),
 		}
 
+		channel_lock_status.With(prometheus.Labels{"channel": dsOFDMTableData.channel_id, "direction": "downstream", "channel_type": "ofdm"}).Set(dsOFDMTableData.lock_status)
 		channel_power.With(prometheus.Labels{"channel": dsOFDMTableData.channel_id, "direction": "downstream", "channel_type": "ofdm"}).Set(dsOFDMTableData.power)
 		channel_snr_mer.With(prometheus.Labels{"channel": dsOFDMTableData.channel_id, "direction": "downstream", "channel_type": "ofdm"}).Set(dsOFDMTableData.snr_mer)
 		channel_unerrored_codewords.With(prometheus.Labels{"channel": dsOFDMTableData.channel_id, "direction": "downstream", "channel_type": "ofdm"}).Set(dsOFDMTableData.unerrored_codewords)
@@ -334,13 +361,14 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 
 	upstreamOFDMATable.Each(func(i int, s *goquery.Selection) {
 		usOFDMATableData := usOFDMATable{
-			lock_status:           s.Find("td").Eq(1).Text(),
+			lock_status:           convertLocktoFloat(s, 1),
 			modulation_profile_id: s.Find("td").Eq(2).Text(),
 			channel_id:            s.Find("td").Eq(3).Text(),
 			frequency:             convertStringTabletoFloat(s, 4, "Hz"),
 			power:                 convertStringTabletoFloat(s, 5, "dBmV"),
 		}
 
+		channel_lock_status.With(prometheus.Labels{"channel": usOFDMATableData.channel_id, "direction": "upstream", "channel_type": "ofdma"}).Set(usOFDMATableData.lock_status)
 		channel_frequency.With(prometheus.Labels{"channel": usOFDMATableData.channel_id, "direction": "upstream", "channel_type": "ofdma"}).Set(usOFDMATableData.frequency)
 		channel_power.With(prometheus.Labels{"channel": usOFDMATableData.channel_id, "direction": "upstream", "channel_type": "ofdma"}).Set(usOFDMATableData.power)
 	})
