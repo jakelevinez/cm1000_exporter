@@ -288,7 +288,7 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 	upstreamTable := scrapeData.Find("table[id='usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 	downstreamOFDMTable := scrapeData.Find("table[id='d31dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 	upstreamOFDMATable := scrapeData.Find("table[id='d31usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
-	uptimeData := scrapeData.Find("td[id='SystemUpTime']").Find("tbody").Find("b").Slice(1, goquery.ToEnd)
+	uptimeData := scrapeData.Find("td[id='SystemUpTime']")
 
 	log.Println("Parsing and exporting DS table data")
 
@@ -380,15 +380,20 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 	log.Println("Parsing and exporting uptime")
 
 	var utstring string = uptimeData.Text()
+	var utstringparsed string = strings.Replace(utstring, "System Up Time:", "", 1)
+	log.Println(utstringparsed)
 
-	var splitString []string = strings.Split(utstring, ":")
+	var splitString []string = strings.Split(utstringparsed, ":")
 
 	var hours = splitString[0]
 	var hoursUnsliced = hours[0]
+	log.Println(hoursUnsliced)
 	var minutes = splitString[1]
 	var minutesUnsliced = minutes[0]
+	log.Println(minutesUnsliced)
 	var seconds = splitString[2]
 	var secondsUnsliced = seconds[0]
+	log.Println(secondsUnsliced)
 
 	var uptime_seconds float64 = float64(secondsUnsliced) + (float64(minutesUnsliced) * 60) + (float64(hoursUnsliced) * 3600)
 	systemUpTime.Set(uptime_seconds)
