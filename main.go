@@ -225,6 +225,12 @@ var (
 	},
 		[]string{"channel", "channel_type", "direction"})
 )
+var (
+	systemUpTime = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "system_uptime_seconds",
+		Help: "The system uptime in seconds",
+	})
+)
 
 func convertTabletoFloat(table *goquery.Selection, i int) float64 {
 	//takes a goquery selection and a row index and returns the value of the cell at that index as an integer.
@@ -282,6 +288,7 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 	upstreamTable := scrapeData.Find("table[id='usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 	downstreamOFDMTable := scrapeData.Find("table[id='d31dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 	upstreamOFDMATable := scrapeData.Find("table[id='d31usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
+	uptimeData := scrapeData.Find("td[id='SystemUpTime']").Find("tbody").Find("b").Slice(1, goquery.ToEnd)
 
 	log.Println("Parsing and exporting DS table data")
 
@@ -369,6 +376,23 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 		channel_frequency.With(prometheus.Labels{"channel": usOFDMATableData.channel_id, "direction": "upstream", "channel_type": "ofdma"}).Set(usOFDMATableData.frequency)
 		channel_power.With(prometheus.Labels{"channel": usOFDMATableData.channel_id, "direction": "upstream", "channel_type": "ofdma"}).Set(usOFDMATableData.power)
 	})
+
+	log.Println("Parsing and exporting uptime")
+
+	var utstring string = uptimeData.Text()
+
+	var splitString []string = strings.Split(utstring, ":")
+
+	var hours = splitString[0]
+	var hoursUnsliced = hours[0]
+	var minutes = splitString[1]
+	var minutesUnsliced = minutes[0]
+	var seconds = splitString[2]
+	var secondsUnsliced = seconds[0]
+
+	var uptime_seconds float64 = float64(secondsUnsliced) + (float64(minutesUnsliced) * 60) + (float64(hoursUnsliced) * 3600)
+	systemUpTime.Set(uptime_seconds)
+
 }
 
 func exporterLoop(currentModem *Modem) {
@@ -379,18 +403,15 @@ func exporterLoop(currentModem *Modem) {
 
 			scrapeData := currentModem.getData()
 
-			fmt.Printf("Scraped data \n")
-			fmt.Printf(scrapeData.Selection.Text())
+			log.Println("Scraped data")
+			fmt.Println(scrapeData.Selection.Text())
 
-			fmt.Printf("Length of scrape data: \n")
-			fmt.Printf(strconv.Itoa(scrapeData.Length()))
+			var pageSelection = scrapeData.Find("function redirectPage()")
 
-			var pageSelection = scrapeData.Find("/GenieLogin.asp")
-
-			fmt.Printf("Page Selection: \n")
-			fmt.Printf(pageSelection.Text())
-			fmt.Printf("Page Selection length: \n")
-			fmt.Printf(strconv.Itoa(pageSelection.Length()))
+			fmt.Println("Page Selection:")
+			fmt.Println(pageSelection.Text())
+			fmt.Println("Page Selection length:")
+			fmt.Println(strconv.Itoa(pageSelection.Length()))
 
 			exportMetrics(scrapeData, initialRun)
 
