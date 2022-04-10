@@ -128,16 +128,15 @@ func (modem *Modem) loginFunc() {
 	fmt.Printf("%+v\n", data)
 
 	response, err := client.PostForm(loginURL, data)
-
 	if err != nil {
-		log.Fatalln(err)
+		log.Println("Error posting login form", err)
 	}
 
 	defer response.Body.Close()
 
 	_, err = ioutil.ReadAll(response.Body)
 	if err != nil {
-		log.Fatalln(err)
+		log.Println("Error reading response to post login", err)
 	}
 }
 
@@ -149,7 +148,7 @@ func (modem *Modem) getData() *goquery.Document {
 
 	if err != nil {
 		unsuccessfulScrapes.Inc()
-		log.Fatalln("Error fetching response. ", err)
+		log.Println("Error fetching response. ", err)
 	}
 
 	defer response.Body.Close()
@@ -157,7 +156,7 @@ func (modem *Modem) getData() *goquery.Document {
 	document, err := goquery.NewDocumentFromReader(response.Body)
 	if err != nil {
 		unsuccessfulScrapes.Inc()
-		log.Fatal("Error loading HTTP response body. ", err)
+		log.Println("Error loading HTTP response body. ", err)
 	}
 
 	successfulScrapes.Inc()
@@ -383,6 +382,20 @@ func exporterLoop(currentModem *Modem) {
 			scrapeData := currentModem.getData()
 
 			fmt.Printf("Scraped data \n")
+			fmt.Printf(scrapeData.Selection.Text())
+
+			fmt.Printf("Length of scrape data: \n")
+			fmt.Printf(strconv.Itoa(scrapeData.Length()))
+
+			var pageSelection = scrapeData.Find("/GenieLogin.asp")
+
+			fmt.Printf("Page Selection: \n")
+			fmt.Printf(pageSelection.Text())
+			fmt.Printf("Page Selection length: \n")
+			fmt.Printf(strconv.Itoa(pageSelection.Length()))
+			// if pageSelection.Length() > 1 {
+
+			// }
 
 			exportMetrics(scrapeData, initialRun)
 
