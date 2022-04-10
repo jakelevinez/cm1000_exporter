@@ -81,7 +81,7 @@ func (modem *Modem) getToken() webToken {
 	tokenURL := modem.Url + tokenURI
 	client := modem.Client
 
-	fmt.Printf("Get request on login url " + tokenURL + "\n")
+	log.Println("Get request on login url " + tokenURL)
 
 	response, err := client.Get(tokenURL)
 
@@ -89,13 +89,13 @@ func (modem *Modem) getToken() webToken {
 		log.Fatalln("Error fetching response. ", err)
 	}
 
-	fmt.Printf("Got response \n")
+	log.Println("Recieved response")
 
 	defer response.Body.Close()
 
 	document, err := goquery.NewDocumentFromReader(response.Body)
 	if err != nil {
-		log.Fatal("Error loading HTTP response body. ", err)
+		log.Println("Error loading HTTP response body. ", err)
 	}
 
 	token, _ := document.Find("input[name='webToken']").Attr("value")
@@ -110,11 +110,11 @@ func (modem *Modem) getToken() webToken {
 func (modem *Modem) loginFunc() {
 	client := modem.Client
 
-	fmt.Printf("getting token \n")
+	log.Println("Getting webtoken")
 
 	webToken := modem.getToken()
 
-	fmt.Printf("Got web token \n")
+	log.Println("Got web token")
 
 	loginURL := modem.Url + loginURI
 
@@ -124,8 +124,6 @@ func (modem *Modem) loginFunc() {
 		"loginPassword": {modem.Pass},
 		"login":         {modem.login},
 	}
-
-	fmt.Printf("%+v\n", data)
 
 	response, err := client.PostForm(loginURL, data)
 	if err != nil {
@@ -285,7 +283,7 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 	downstreamOFDMTable := scrapeData.Find("table[id='d31dsTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 	upstreamOFDMATable := scrapeData.Find("table[id='d31usTable']").Find("tbody").Find("tr").Slice(1, goquery.ToEnd)
 
-	fmt.Printf("DS Table Data: \n")
+	log.Println("Parsing and exporting DS table data")
 
 	downstreamTable.Each(func(i int, s *goquery.Selection) {
 
@@ -311,7 +309,7 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 
 	})
 
-	fmt.Printf("US Table Data: \n")
+	log.Println("Parsing and exporting US table data")
 
 	upstreamTable.Each(func(i int, s *goquery.Selection) {
 
@@ -329,7 +327,7 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 
 	})
 
-	fmt.Printf("DS OFDM Table Data:\n")
+	log.Println("Parsing and exporting DS OFDM table data")
 
 	downstreamOFDMTable.Each(func(i int, s *goquery.Selection) {
 
@@ -356,7 +354,7 @@ func exportMetrics(scrapeData *goquery.Document, initialRun bool) {
 
 	})
 
-	fmt.Printf("US OFDMA Table Data:\n")
+	log.Println("Parsing and exporting US OFDMA table data")
 
 	upstreamOFDMATable.Each(func(i int, s *goquery.Selection) {
 		usOFDMATableData := usOFDMATable{
@@ -393,9 +391,6 @@ func exporterLoop(currentModem *Modem) {
 			fmt.Printf(pageSelection.Text())
 			fmt.Printf("Page Selection length: \n")
 			fmt.Printf(strconv.Itoa(pageSelection.Length()))
-			// if pageSelection.Length() > 1 {
-
-			// }
 
 			exportMetrics(scrapeData, initialRun)
 
@@ -410,7 +405,7 @@ func exporterLoop(currentModem *Modem) {
 
 func main() {
 
-	fmt.Printf("Initializing modem parameters \n")
+	log.Println("Initializing modem parameters")
 
 	url, existsUrl := os.LookupEnv("MODEM_URL")
 	user, existsUser := os.LookupEnv("MODEM_USER")
@@ -418,36 +413,36 @@ func main() {
 	port, existsPort := os.LookupEnv("EXPORT_PORT")
 
 	if existsUrl {
-		fmt.Printf("Found modem url from env var \n")
+		log.Println("Found modem url from env var")
 	} else {
 		url = "http://192.168.100.1"
 	}
 
 	if existsUser {
-		fmt.Printf("Found modem user from env var \n")
+		log.Println("Found modem user from env var")
 	} else {
 		user = "admin"
 	}
 
 	if existsPass {
-		fmt.Printf("Found modem pass from env var \n")
+		log.Println("Found modem pass from env var")
 	} else {
 		pass = "password"
 	}
 
 	if existsPort {
-		fmt.Printf("Found modem port from env var \n")
+		log.Println("Found modem port from env var")
 	} else {
 		port = "9527"
 	}
 
 	portstring := ":" + port
 
-	fmt.Printf("Initializing cookiejar \n")
+	log.Println("Initializing cookiejar")
 
 	jar, _ := cookiejar.New(nil)
 
-	fmt.Printf("Initialized cookiejar \n")
+	log.Println("Initialized cookiejar")
 
 	currentModem := Modem{
 		Url:    url,
@@ -459,11 +454,11 @@ func main() {
 
 	// scrape modem
 
-	fmt.Printf("Logging in to modem \n")
+	log.Println("Logging in to modem")
 
 	currentModem.loginFunc()
 
-	fmt.Printf("Logged in to Modem \n")
+	log.Println("Logged in to Modem")
 
 	exporterLoop(&currentModem)
 
