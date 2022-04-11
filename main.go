@@ -77,6 +77,75 @@ type usOFDMATable struct {
 	power                 float64
 }
 
+var (
+	successfulScrapes = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "successful_modem_scrapes",
+		Help: "The total number of successful modem scrapes",
+	})
+)
+
+var (
+	unsuccessfulScrapes = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "unsuccessful_modem_scrapes",
+		Help: "The total number of unsuccessful modem scrapes",
+	})
+)
+var (
+	channel_frequency = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "channel_frequency_hz",
+		Help: "Channel Frequency",
+	},
+		[]string{"channel", "channel_type", "direction"})
+)
+var (
+	channel_power = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "channel_power_dbmv",
+		Help: "Channel power",
+	},
+		[]string{"channel", "channel_type", "direction"})
+)
+var (
+	channel_snr_mer = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "channel_snr_mer",
+		Help: "Channel SNR MER",
+	},
+		[]string{"channel", "channel_type", "direction"})
+)
+var (
+	channel_unerrored_codewords = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "channel_unerrored_codewords",
+		Help: "The number of unerrored codewords",
+	},
+		[]string{"channel", "channel_type", "direction"})
+)
+var (
+	channel_correctable_codewords = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "channel_correctable_codewords",
+		Help: "The number of correctable codewords",
+	},
+		[]string{"channel", "channel_type", "direction"})
+)
+var (
+	channel_uncorrectable_codewords = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "channel_uncorrectable_codewords",
+		Help: "The number of uncorrectable codewords",
+	},
+		[]string{"channel", "channel_type", "direction"})
+)
+var (
+	channel_lock_status = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "channel_lock_status",
+		Help: "The lock status of the channel",
+	},
+		[]string{"channel", "channel_type", "direction"})
+)
+var (
+	systemUpTime = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "system_uptime_seconds",
+		Help: "The system uptime in seconds",
+	})
+)
+
 func (modem *Modem) getToken() webToken {
 	tokenURL := modem.Url + tokenURI
 	client := modem.Client
@@ -147,6 +216,7 @@ func (modem *Modem) getData() *goquery.Document {
 	if err != nil {
 		unsuccessfulScrapes.Inc()
 		log.Println("Error fetching response. ", err)
+		modem.loginFunc()
 	}
 
 	defer response.Body.Close()
@@ -155,6 +225,7 @@ func (modem *Modem) getData() *goquery.Document {
 	if err != nil {
 		unsuccessfulScrapes.Inc()
 		log.Println("Error loading HTTP response body. ", err)
+		modem.loginFunc()
 	}
 
 	successfulScrapes.Inc()
@@ -162,75 +233,6 @@ func (modem *Modem) getData() *goquery.Document {
 	return document
 
 }
-
-var (
-	successfulScrapes = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "successful_modem_scrapes",
-		Help: "The total number of successful modem scrapes",
-	})
-)
-
-var (
-	unsuccessfulScrapes = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "unsuccessful_modem_scrapes",
-		Help: "The total number of unsuccessful modem scrapes",
-	})
-)
-var (
-	channel_frequency = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "channel_frequency_hz",
-		Help: "Channel Frequency",
-	},
-		[]string{"channel", "channel_type", "direction"})
-)
-var (
-	channel_power = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "channel_power_dbmv",
-		Help: "Channel power",
-	},
-		[]string{"channel", "channel_type", "direction"})
-)
-var (
-	channel_snr_mer = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "channel_snr_mer",
-		Help: "Channel SNR MER",
-	},
-		[]string{"channel", "channel_type", "direction"})
-)
-var (
-	channel_unerrored_codewords = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "channel_unerrored_codewords",
-		Help: "The number of unerrored codewords",
-	},
-		[]string{"channel", "channel_type", "direction"})
-)
-var (
-	channel_correctable_codewords = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "channel_correctable_codewords",
-		Help: "The number of correctable codewords",
-	},
-		[]string{"channel", "channel_type", "direction"})
-)
-var (
-	channel_uncorrectable_codewords = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "channel_uncorrectable_codewords",
-		Help: "The number of uncorrectable codewords",
-	},
-		[]string{"channel", "channel_type", "direction"})
-)
-var (
-	channel_lock_status = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "channel_lock_status",
-		Help: "The lock status of the channel",
-	},
-		[]string{"channel", "channel_type", "direction"})
-)
-var (
-	systemUpTime = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "system_uptime_seconds",
-		Help: "The system uptime in seconds",
-	})
-)
 
 func convertTabletoFloat(table *goquery.Selection, i int) float64 {
 	//takes a goquery selection and a row index and returns the value of the cell at that index as an integer.
