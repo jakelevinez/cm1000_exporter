@@ -494,5 +494,4 @@ func main() {
 
 	http.Handle("/metrics", promhttp.Handler())
 	log.Fatal(http.ListenAndServe(portstring, nil))
-
 }
